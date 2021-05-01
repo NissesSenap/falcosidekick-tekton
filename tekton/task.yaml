@@ -1,0 +1,19 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: hello
+spec:
+  params:
+    - name: output
+      description: The output from falco
+    - name: priority
+      description: The priority from falco
+    - name: rule
+      description: The triggerd falco rule
+  steps:
+    - name: hello
+      image: ubuntu
+      command:
+        - echo
+      args:
+        - "Hello World! output: $(params.output), priority: $(params.priority), rule: $(params.rule)"

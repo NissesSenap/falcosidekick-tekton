@@ -1,0 +1,14 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: hello-run-
+spec:
+  pipelineRef:
+    name: hello
+  params:
+    - name: output
+      value: "somuchoutput"
+    - name: priority
+      value: "prio90000"
+    - name: rule
+      value: "rule1234"

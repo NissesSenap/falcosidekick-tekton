@@ -1,0 +1,27 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: falco-trigger-template
+spec:
+  params:
+    - name: output
+      description: The output from falco
+    - name: priority
+      description: The priority from falco
+    - name: rule
+      description: The triggerd falco rule
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: Pipeline
+      metadata:
+        generateName: hello-task-run-
+      spec:
+        taskRef:
+          name: hello
+        params:
+          - name: output
+            value: $(tt.params.output)
+          - name: priority
+            value: $(tt.params.priority)
+          - name: rule
+            value: $(tt.params.rule)
