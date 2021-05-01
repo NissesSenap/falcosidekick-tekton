@@ -2,6 +2,7 @@ apiVersion: triggers.tekton.dev/v1alpha1
 kind: TriggerTemplate
 metadata:
   name: falco-trigger-template
+  namespace: falcoresponse
 spec:
   params:
     - name: output

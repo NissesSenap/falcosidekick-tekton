@@ -97,3 +97,12 @@ EOF
 ### EventListener
 
 Notice the Cel header match=Falcon
+
+## Trigger job
+
+```shell
+kubectl run alpine --namespace default --image=alpine --restart='Never' -- sh -c "sleep 600"
+# Trigger the kill
+kubectl exec -i --tty alpine --namespace default -- sh -c "uptime"
+
+```
