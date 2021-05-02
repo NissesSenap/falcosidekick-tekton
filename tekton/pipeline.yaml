@@ -8,15 +8,6 @@ spec:
     - name: body
       description: The entire msg from falco
       default: myBody
-    - name: output
-      description: The output from falco
-      default: myOutput
-    - name: priority
-      description: The priority from falco
-      default: myPriority
-    - name: rule
-      description: The triggerd falco rule
-      default: myRule
   tasks:
     - name: run-hello
       taskRef:
@@ -24,9 +15,3 @@ spec:
       params:
         - name: body
           value: "$(params.body)"
-        - name: output
-          value: "$(params.output)"
-        - name: priority
-          value: "$(params.priority)"
-        - name: rule
-          value: "$(params.rule)"

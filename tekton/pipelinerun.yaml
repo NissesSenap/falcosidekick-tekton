@@ -7,9 +7,5 @@ spec:
   pipelineRef:
     name: hello
   params:
-    - name: output
+    - name: body
       value: "somuchoutput"
-    - name: priority
-      value: "prio90000"
-    - name: rule
-      value: "rule1234"
