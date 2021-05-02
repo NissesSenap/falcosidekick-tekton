@@ -7,7 +7,6 @@ spec:
   params:
     - name: body
       description: The entire msg from falco
-      default: myBody
   tasks:
     - name: run-hello
       taskRef:
