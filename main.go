@@ -1,12 +1,10 @@
-package function
+package main
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"time"
 
@@ -48,7 +46,7 @@ type Alert struct {
 	} `json:"output_fields"`
 }
 
-var CriticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco", "openfaas", "openfaas-fn"}
+var CriticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
 
 func main() {
 	var alert Alert
@@ -61,30 +59,23 @@ func main() {
 	bodyReqByte := []byte(bodyReq)
 	json.Unmarshal(bodyReqByte, alert)
 
-	if r.Body != nil {
-		defer r.Body.Close()
+	podName := alert.OutputFields.K8SPodName
+	namespace := alert.OutputFields.K8SNsName
 
-		body, _ := ioutil.ReadAll(r.Body)
-
-		json.Unmarshal(body, &alert)
-
-		podName := alert.OutputFields.K8SPodName
-		namespace := alert.OutputFields.K8SNsName
-
-		var critical bool
-		for _, ns := range CriticalNamespaces {
-			if ns == namespace {
-				critical = true
-				break
-			}
-		}
-
-		if !critical {
-			log.Printf("Deleting pod %s from namespace %s", podName, namespace)
-			kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), podName, metaV1.DeleteOptions{})
+	var critical bool
+	for _, ns := range CriticalNamespaces {
+		if ns == namespace {
+			critical = true
+			break
 		}
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	if !critical {
+		log.Printf("Deleting pod %s from namespace %s", podName, namespace)
+		err := kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), podName, metaV1.DeleteOptions{})
+		if err != nil {
+			log.Fatalf("Unable to delete pod due to err %v", err)
+			os.Exit(1)
+		}
+	}
 }
