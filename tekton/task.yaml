@@ -5,6 +5,8 @@ metadata:
   namespace: falcoresponse
 spec:
   params:
+    - name: body
+      description: The entire msg from falco
     - name: output
       description: The output from falco
     - name: priority
@@ -17,4 +19,4 @@ spec:
       command:
         - echo
       args:
-        - "Hello World! output: $(params.output), priority: $(params.priority), rule: $(params.rule)"
+        - "Hello World! output: $(params.output), priority: $(params.priority), rule: $(params.rule), body: $(params.body)"

@@ -1,5 +1,20 @@
 # Ideas
 
+## Current
+
+I currently get issues to even start a pipline.
+Try to make the trigger-binding as basic as possible. Aka send the entire body and no other incoming params.
+Lets echo that output in the hello task/ubuntu image.
+In short get a basic eventbinding to work agian.
+
+### TODO
+
+- Create a super simple go app that works with the incoming data.
+  - probably just a single body for now, then discuss with falco community.
+- Create a Dockerfile
+- Push dockerfile to quay.io
+- Verify e2e workflow
+
 ## Output example
 
 This is how I can easily test my go application.

@@ -98,6 +98,9 @@ EOF
 
 Notice the Cel header match=Falcon
 
+Notice the annotations in triggerTemplate: `triggers.tekton.dev/old-escape-quotes: "true"`.
+It's needed to be able to send the json data as a [string](https://tekton.dev/docs/triggers/triggertemplates/#escaping-quoted-strings).
+
 ## Trigger job
 
 ```shell

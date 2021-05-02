@@ -5,9 +5,11 @@ metadata:
   namespace: falcoresponse
 spec:
   params:
-    - name: output
-      value: $(body.output)
-    - name: priority
-      value: $(body.priority)
-    - name: rule
-      value: $(body.rule)
+    - name: body
+      value: $(body)
+    #- name: output
+    #  value: $(body.output)
+    #- name: priority
+    #  value: $(body.priority)
+    #- name: rule
+    #  value: $(body.rule)

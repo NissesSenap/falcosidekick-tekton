@@ -3,26 +3,32 @@ kind: TriggerTemplate
 metadata:
   name: falco-trigger-template
   namespace: falcoresponse
+  annotations:
+    triggers.tekton.dev/old-escape-quotes: "true"
 spec:
   params:
-    - name: output
-      description: The output from falco
-    - name: priority
-      description: The priority from falco
-    - name: rule
-      description: The triggerd falco rule
+    - name: body
+      description: The entire msg from falco
+    #- name: output
+    #  description: The output from falco
+    #- name: priority
+    #  description: The priority from falco
+    #- name: rule
+    #  description: The triggerd falco rule
   resourcetemplates:
     - apiVersion: tekton.dev/v1beta1
-      kind: Pipeline
+      kind: PipelineRun
       metadata:
-        generateName: hello-task-run-
+        generateName: hello-pipeline-run-
       spec:
-        taskRef:
+        pipelineRef:
           name: hello
         params:
-          - name: output
-            value: $(tt.params.output)
-          - name: priority
-            value: $(tt.params.priority)
-          - name: rule
-            value: $(tt.params.rule)
+          - name: body
+            value: $(tt.params.body)
+          #- name: output
+          #  value: $(tt.params.output)
+          #- name: priority
+          #  value: $(tt.params.priority)
+          #- name: rule
+          #  value: $(tt.params.rule)
