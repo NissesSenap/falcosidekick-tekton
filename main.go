@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -12,22 +11,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
-
-var kubeClient *kubernetes.Clientset
-
-func init() {
-
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err.Error())
-	}
-	// creates the clientset
-	kubeClient, err = kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
-}
 
 type Alert struct {
 	Output       string    `json:"output"`
@@ -46,28 +29,41 @@ type Alert struct {
 	} `json:"output_fields"`
 }
 
-var CriticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
-
 func main() {
+	var CriticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
 	var alert Alert
 
 	bodyReq := os.Getenv("BODY")
 	if bodyReq == "" {
-		panic("Need to get ENV var body")
+		panic("Need to get environment variable BODY")
 	}
-	fmt.Println(bodyReq)
 	bodyReqByte := []byte(bodyReq)
-	json.Unmarshal(bodyReqByte, alert)
+	json.Unmarshal(bodyReqByte, &alert)
 
 	podName := alert.OutputFields.K8SPodName
 	namespace := alert.OutputFields.K8SNsName
+	log.Printf("PodName: %v & Namespace: %v", podName, namespace)
 
+	log.Printf("Rule: %v", alert.Rule)
 	var critical bool
 	for _, ns := range CriticalNamespaces {
 		if ns == namespace {
 			critical = true
 			break
 		}
+	}
+
+	// setup kubeClient
+	var kubeClient *kubernetes.Clientset
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	// creates the clientset
+	kubeClient, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
 	}
 
 	if !critical {

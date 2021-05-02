@@ -4,6 +4,7 @@ metadata:
   generateName: hello-run-
   namespace: falcoresponse
 spec:
+  serviceAccountName: falco-pod-delete
   pipelineRef:
     name: hello
   params:

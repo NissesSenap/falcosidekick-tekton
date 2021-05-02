@@ -28,8 +28,7 @@ LABEL \
   description="Kubernetes response Engine delete pods is meant to be run inside k8s and delete pods after getting instructions from falcosidekick." \
   name="podDeleter"
 
-RUN apt-get update && apt-get install -y \
-    curl \
+RUN apt-get update && apt-get upgrade -y \
  && rm -rf /var/lib/apt/lists/*
 
 USER 1001
@@ -38,4 +37,4 @@ WORKDIR /app
 
 COPY --from=builder /app/bin/poddeleter .
 
-CMD ["./poddeleter"]
+CMD ["/app/poddeleter"]

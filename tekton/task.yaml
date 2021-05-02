@@ -9,8 +9,7 @@ spec:
       description: The entire msg from falco
   steps:
     - name: hello
-      image: ubuntu
-      command:
-        - echo
-      args:
-        - "$(params.body)"
+      image: quay.io/nissessenap/poddeleter:3a9d3d5
+      env:
+        - name: BODY
+          value: "$(params.body)"
