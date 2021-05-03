@@ -246,14 +246,14 @@ cat <<EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: hello
+  name: pod-delete
   namespace: falcoresponse
 spec:
   params:
     - name: body
       description: The entire msg from falco
   steps:
-    - name: hello
+    - name: pod-delete
       image: quay.io/nissessenap/poddeleter:3a9d3d5
       env:
         - name: BODY
@@ -262,31 +262,31 @@ EOF
 ```
 
 - The task needs a input variable called body.
-- The step called hello uses the poddeleter image.
-- Step hello sets the environment BODY from the input parameter called body.
+- The step called pod-delete uses the poddeleter image.
+- Step pod-delete sets the environment BODY from the input parameter called body.
 
 #### Pipeline
 
 Bellow you can see the reusability of tekton.
 This pipeline can easily add more tasks and other pipelines can use the exact same task as this one.
 
-Just like the task this pipeline expects a parameter called body which it sends in to the hello task.
+Just like the task this pipeline expects a parameter called body which it sends in to the pod-delete task.
 
 ```shell
 cat <<EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: hello
+  name: pod-delete
   namespace: falcoresponse
 spec:
   params:
     - name: body
       description: The entire msg from falco
   tasks:
-    - name: run-hello
+    - name: run-pod-delete
       taskRef:
-        name: hello
+        name: pod-delete
       params:
         - name: body
           value: "$(params.body)"
@@ -372,11 +372,11 @@ spec:
     - apiVersion: tekton.dev/v1beta1
       kind: PipelineRun
       metadata:
-        generateName: hello-pipeline-run-
+        generateName: pod-delete-pipeline-run-
       spec:
         serviceAccountName: falco-pod-delete
         pipelineRef:
-          name: hello
+          name: pod-delete
         params:
           - name: body
             value: $(tt.params.body)
@@ -557,7 +557,7 @@ hello-pipeline-run-vs89z-run-hello-6cxqn-pod-sjk2z   0/1     Completed   0      
 If you look in the logs of the task
 
 ```shell
-kubectl logs -f $(kubectl get pods -l tekton.dev/task=hello -o jsonpath="{.items[0].metadata.name}" -n falcoresponse) -n falcoresponse
+kubectl logs -f $(kubectl get pods -l tekton.dev/task=pod-delete -o jsonpath="{.items[0].metadata.name}" -n falcoresponse) -n falcoresponse
 2021/05/02 18:11:00 PodName: alpine & Namespace: falcoresponse
 2021/05/02 18:11:00 Rule: Terminal shell in container
 2021/05/02 18:11:00 Deleting pod alpine from namespace falcoresponse
