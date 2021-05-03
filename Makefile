@@ -17,6 +17,7 @@ bin/container:
 
 bin/push:
 	docker push $(IMAGE_REPO):$(GH_VERSION)
+.PHONY: bin/push
 
 clean:
 	rm -rf ./bin ./share
