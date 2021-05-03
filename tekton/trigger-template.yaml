@@ -1,0 +1,23 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: falco-trigger-template
+  namespace: falcoresponse
+  annotations:
+    triggers.tekton.dev/old-escape-quotes: "true"
+spec:
+  params:
+    - name: body
+      description: The entire msg from falco
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: hello-pipeline-run-
+      spec:
+        serviceAccountName: falco-pod-delete
+        pipelineRef:
+          name: hello
+        params:
+          - name: body
+            value: $(tt.params.body)

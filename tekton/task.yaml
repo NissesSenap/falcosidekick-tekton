@@ -1,0 +1,15 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: hello
+  namespace: falcoresponse
+spec:
+  params:
+    - name: body
+      description: The entire msg from falco
+  steps:
+    - name: hello
+      image: quay.io/nissessenap/poddeleter:3a9d3d5
+      env:
+        - name: BODY
+          value: "$(params.body)"

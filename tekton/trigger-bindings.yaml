@@ -1,0 +1,9 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerBinding
+metadata:
+  name: falco-binding
+  namespace: falcoresponse
+spec:
+  params:
+    - name: body
+      value: $(body)

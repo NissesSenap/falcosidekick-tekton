@@ -1,0 +1,12 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: hello-run-
+  namespace: falcoresponse
+spec:
+  serviceAccountName: falco-pod-delete
+  pipelineRef:
+    name: hello
+  params:
+    - name: body
+      value: "somuchoutput"

@@ -1,0 +1,16 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: hello
+  namespace: falcoresponse
+spec:
+  params:
+    - name: body
+      description: The entire msg from falco
+  tasks:
+    - name: run-hello
+      taskRef:
+        name: hello
+      params:
+        - name: body
+          value: "$(params.body)"

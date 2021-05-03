@@ -1,0 +1,13 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: falco-listener
+  namespace: falcoresponse
+spec:
+  serviceAccountName: tekton-triggers-example-sa
+  triggers:
+    - name: cel-trig
+      bindings:
+        - ref: falco-binding
+      template:
+        ref: falco-trigger-template
