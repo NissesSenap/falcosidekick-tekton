@@ -1,6 +1,6 @@
 # Falcosidekick + Tekton
 
-If you follow the Falco blog you have been able to see talk about "Kubernetes Response Engine".
+If you follow the Falco blog you have been able to see a recent blog post about "Kubernetes Response Engine".
 
 In those blogs there is talk about two different serverless runtimes, [Kubeless](https://kubeless.io/) and [OpenFaas](https://www.openfaas.com/).
 The blogs talk about how you can trigger a pod after getting input from faclosidekick to kill a compromised pod.
@@ -25,7 +25,7 @@ You can find all the yaml and code in my [gitrepo](https://github.com/NissesSena
 
 ## Prerequisites
 
-As always within kubernetes we need a few tools.
+As always within Kubernetes we need a few tools, I have used the following versions of Helm, Minikube and kubectl in my setup.
 
 - Minikube v1.19.0
 - Helm v3.4.2
@@ -136,7 +136,7 @@ So lets look at some yaml.
 
 I have adapted the code that Batuhan Apaydın wrote in [Falcosidekick + OpenFaas = a Kubernetes Response Engine, Part 2](https://falco.org/blog/falcosidekick-openfaas/) to listen for json in a environment variable instead of a http request.
 
-Bellow you can see the code, in short it does the following:
+Below you can see the code, in short it does the following:
 
 - Check for environment variable BODY.
 - Unmarshal the data according to the Alert struct.
@@ -202,7 +202,6 @@ func main() {
 	err = deletePod(kubeClient, falcoEvent, criticalNamespaces)
 	if err != nil {
 		log.Fatalf("Unable to delete pod due to err %v", err)
-		os.Exit(1)
 	}
 }
 
@@ -286,7 +285,7 @@ EOF
 
 #### Pipeline
 
-Bellow you can see the reusability of tekton.
+Here you can see the reusability of tekton.
 This pipeline can easily add more tasks and other pipelines can use the exact same task as this one.
 
 Just like the task this pipeline expects a parameter called falco-event which it sends in to the pod-delete task.
@@ -316,9 +315,9 @@ EOF
 
 We will be using two separate serviceAccounts, one for the event-listener and one for the poddeleter it self.
 
-So lets create those serviceAccounts and give them some access.
+So lets create these serviceAccounts and give them some access.
 
-Bellow you can find the event listener RBAC config.
+Below you can find the event listener RBAC config.
 
 ```shell
 cat <<EOF | kubectl apply -f -
@@ -508,10 +507,10 @@ spec:
 EOF
 ```
 
-> Notice the [annotations](https://tekton.dev/docs/triggers/triggertemplates/#escaping-quoted-strings), without it the pipeline never gets triggerd due to errors.
+> Notice the [annotations](https://tekton.dev/docs/triggers/triggertemplates/#escaping-quoted-strings), without it the pipeline will never get triggered.
 
 We define the serviceAccount to use in our pipeline/task, point to the pipeline that we should use.
-And what parameter to send down to the pipeline, notice to **tt** in front of parma. This is special syntax for TriggerBindings.
+And what parameter to send down to the pipeline, notice the **tt** in front of parma. This is special syntax for TriggerBindings.
 
 The triggerTemplate was the final pice needed and you should see a pod spinning up in the falcoresponse namespace.
 
@@ -587,11 +586,11 @@ kubectl logs -f $(kubectl get pods -l tekton.dev/task=pod-delete -o jsonpath="{.
 
 This was a rather simple example on how we can use the power of tekton together with Falco to protect us from bad actors that is trying to take over pods in our cluster.
 
-As noted during this post there are allot of potential improvements before this is production ready, for example:
+As noted during this post there are allot of potential improvements before this is production ready:
 
 - The criticalNamepsaces in our go code is currently hard-coded and needs to be input variable of some kind.
 - We need to be able to delete pods depending on priority level, rule or something similar.
-- To be able to debug pods we might need to shell in th them, we need a way to ignore pods temporary without the pod getting restarted. Probably a annotation to look for in the pod before deleting it.
+- To be able to debug pods we might need to shell in to them, we need a way to ignore pods temporary without the pod getting restarted. Probably a annotation to look for in the pod before deleting it.
 - And probably many other needs that you can come up with.
 
 If you have any ideas/issues come and share them in the falco slack [https://kubernetes.slack.com](https://kubernetes.slack.com) #falco.

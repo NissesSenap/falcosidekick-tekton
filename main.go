@@ -53,7 +53,6 @@ func main() {
 	err = deletePod(kubeClient, falcoEvent, criticalNamespaces)
 	if err != nil {
 		log.Fatalf("Unable to delete pod due to err %v", err)
-		os.Exit(1)
 	}
 }
 
