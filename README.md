@@ -272,7 +272,7 @@ spec:
       description: The entire msg from falco
   steps:
     - name: pod-delete
-      image: quay.io/nissessenap/poddeleter@sha256:323524ac50274a51f5dfdb70bf3ea0d24c57b0ca312b5fbcaa9c81446d5da998
+      image: quay.io/nissessenap/poddeleter@sha256:12ddc401785694bc2d5dd6d5b528d26ecaa3befe6099fa4331450e4b039d137c
       env:
         - name: BODY
           value: \$(params.falco-event)
