@@ -141,8 +141,8 @@ Below you can see the code, in short it does the following:
 - Check for environment variable BODY.
 - Unmarshal the data according to the Alert struct.
 - Setups a kubernetes client, by calling setupK8sClient function.
-- Calls the deletePod with a kubernetes client, the falcoEvent we gotten and a list of the critical Namespaces.
-- Check in the event that we got from falcosidekick and see if the pod that triggerd the event is in our critical namespaces list.
+- Calls the deletePod with a kubernetes client, the falcoEvent we gotten and a hash map of critical Namespaces.
+- Check in the event that we got from falcosidekick and see if the pod that triggered the event is in our critical namespaces hash map.
 - If it is return to the main and shutdown the application.
 - Else deletes the pod in the namespace specified in the falcosidekick event.
 
@@ -181,7 +181,12 @@ type Alert struct {
 }
 
 func main() {
-	var criticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
+	criticalNamespaces := map[string]bool{
+		"kube-system":     true,
+		"kube-public":     true,
+		"kube-node-lease": true,
+		"falco":           true,
+	}
 	var falcoEvent Alert
 
 	bodyReq := os.Getenv("BODY")
@@ -221,17 +226,15 @@ func setupK8sClient() (*kubernetes.Clientset, error) {
 }
 
 // deletePod, if not part of the criticalNamespaces the pod will be deleted
-func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNamespaces []string) error {
+func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNamespaces map[string]bool) error {
 	podName := falcoEvent.OutputFields.K8SPodName
 	namespace := falcoEvent.OutputFields.K8SNsName
 	log.Printf("PodName: %v & Namespace: %v", podName, namespace)
 
 	log.Printf("Rule: %v", falcoEvent.Rule)
-	for _, ns := range criticalNamespaces {
-		if ns == namespace {
-			log.Printf("The pod %v won't be deleted due to it's part of the critical ns list: %v ", podName, ns)
-			return nil
-		}
+	if criticalNamespaces[namespace] {
+		log.Printf("The pod %v won't be deleted due to it's part of the critical ns list: %v ", podName, namespace)
+		return nil
 	}
 
 	log.Printf("Deleting pod %s from namespace %s", podName, namespace)
@@ -241,6 +244,7 @@ func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNames
 	}
 	return nil
 }
+
 ```
 
 If you rather see it in [github](https://raw.githubusercontent.com/NissesSenap/falcosidekick-tekton/main/main.go).
