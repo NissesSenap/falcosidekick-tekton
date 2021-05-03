@@ -32,7 +32,12 @@ type Alert struct {
 }
 
 func main() {
-	var criticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
+	criticalNamespaces := map[string]bool{
+		"kube-system":     true,
+		"kube-public":     true,
+		"kube-node-lease": true,
+		"falco":           true,
+	}
 	var falcoEvent Alert
 
 	bodyReq := os.Getenv("BODY")
@@ -72,14 +77,14 @@ func setupK8sClient() (*kubernetes.Clientset, error) {
 }
 
 // deletePod, if not part of the criticalNamespaces the pod will be deleted
-func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNamespaces []string) error {
+func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNamespaces map[string]bool) error {
 	podName := falcoEvent.OutputFields.K8SPodName
 	namespace := falcoEvent.OutputFields.K8SNsName
 	log.Printf("PodName: %v & Namespace: %v", podName, namespace)
 
 	log.Printf("Rule: %v", falcoEvent.Rule)
-	for _, ns := range criticalNamespaces {
-		if ns == namespace {
+	for ns := range criticalNamespaces {
+		if criticalNamespaces[ns] {
 			log.Printf("The pod %v won't be deleted due to it's part of the critical ns list: %v ", podName, ns)
 			return nil
 		}
