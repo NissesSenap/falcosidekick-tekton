@@ -1,16 +1,17 @@
+---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: hello
+  name: pod-delete-pipeline
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   tasks:
-    - name: run-hello
+    - name: run-pod-delete
       taskRef:
-        name: hello
+        name: pod-delete
       params:
-        - name: body
-          value: "$(params.body)"
+        - name: falco-event
+          value: $(params.falco-event)

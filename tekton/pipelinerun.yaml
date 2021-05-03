@@ -1,12 +1,13 @@
+---
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  generateName: hello-run-
+  generateName: pod-delete-run-
   namespace: falcoresponse
 spec:
   serviceAccountName: falco-pod-delete
   pipelineRef:
-    name: hello
+    name: pod-delete-pipeline
   params:
-    - name: body
-      value: "somuchoutput"
+    - name: falco-event
+      value: "afalcoevent"

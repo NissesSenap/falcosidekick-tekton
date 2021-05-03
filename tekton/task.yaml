@@ -1,15 +1,16 @@
+---
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: hello
+  name: pod-delete
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   steps:
-    - name: hello
-      image: quay.io/nissessenap/poddeleter:3a9d3d5
+    - name: pod-delete
+      image: quay.io/nissessenap/poddeleter@sha256:323524ac50274a51f5dfdb70bf3ea0d24c57b0ca312b5fbcaa9c81446d5da998
       env:
         - name: BODY
-          value: "$(params.body)"
+          value: $(params.falco-event)

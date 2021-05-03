@@ -1,9 +1,10 @@
+---
 apiVersion: triggers.tekton.dev/v1alpha1
 kind: TriggerBinding
 metadata:
-  name: falco-binding
+  name: falco-pod-delete-binding
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       value: $(body)

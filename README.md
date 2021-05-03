@@ -2,10 +2,9 @@
 
 If you follow the Falco blog you have been able to see talk about "Kubernetes Response Engine".
 
-There they used two different serverless runtimes, [Kubeless](https://kubeless.io/) and [OpenFaas](https://www.openfaas.com/).
-
-In my current environment I don't want to add any extra complexity to my cluster by adding any serverless runtimes.
-So instead I will use [Tekton](https://tekton.dev) which is a project that I have been using for more then a year now to run my CI pipelines.
+In those blogs there is talk about two different serverless runtimes, [Kubeless](https://kubeless.io/) and [OpenFaas](https://www.openfaas.com/).
+The blogs talk about how you can trigger a pod after getting input from faclosidekick to kill a compromised pod.
+My plan with this blog is to showcase how we can do the same thing but with [Tekton](https://tekton.dev) and not have to add any extra complexity to your cluster by adding a serverless runtime.
 
 I won't go through how Tekton works in depth but, you can find a good overview in the  [official docs](https://tekton.dev/docs/overview/).
 But hear is the crash course:
@@ -20,7 +19,7 @@ But hear is the crash course:
 
 Tekton also supports eventlisterners that is used to listen for webhooks.
 Normally these webhooks listen for incoming changes to a git repo, for example a PR.
-We will use it to listen for Falco events.
+But we will use it to listen for Falco events.
 
 You can find all the yaml and code in my [gitrepo](https://github.com/NissesSenap/falcosidekick-tekton).
 
@@ -44,7 +43,7 @@ minikube start --cpus 3 --memory 8192 --vm-driver virtualbox
 ## Install Tekton
 
 Install Tekton pipelines and triggers.
-When doing this in production I recommend the [Tekton operator](https://github.com/tektoncd/operator)
+When doing this in production I recommend the [Tekton operator](https://github.com/tektoncd/operator) but for now lets use some pure yaml.
 
 ```shell
 kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
@@ -102,7 +101,7 @@ helm upgrade --install falco falcosecurity/falco --namespace falco -f values.yam
 > Note the customRules and the webhook address.
 
 We haven't setup this webhook address nor is there currently any reason for us to have customRules for eventlistenersink or poddeleter, but it will come.
-Both the Tekton event listener and my poddeleter does a few kubernetes API calls and we don't want falco to try to delete our own infrastructure.
+Both the Tekton event listener and my poddeleter does a few kubernetes API calls and we don't want falco generate alarms for our own infrastructure.
 
 You should be able to see falco and falcosidekick pods in the falco namespace:
 
@@ -141,9 +140,11 @@ Bellow you can see the code, in short it does the following:
 
 - Check for environment variable BODY.
 - Unmarshal the data according to the Alert struct.
-- Takes the pod and namespace name from the event we got from falcosidekick.
-- Checks to see if they are part of CriticalNamespaces, if it is, the poddeleter won't do anything.
-- Deletes the pod in the namespace specified in the falcosidekick event.
+- Setups a kubernetes client, by calling setupK8sClient function.
+- Calls the deletePod with a kubernetes client, the falcoEvent we gotten and a list of the critical Namespaces.
+- Check in the event that we got from falcosidekick and see if the pod that triggerd the event is in our critical namespaces list.
+- If it is return to the main and shutdown the application.
+- Else deletes the pod in the namespace specified in the falcosidekick event.
 
 ```main.go
 package main
@@ -151,6 +152,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -160,6 +162,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// Alert falco data structure
 type Alert struct {
 	Output       string    `json:"output"`
 	Priority     string    `json:"priority"`
@@ -178,50 +181,66 @@ type Alert struct {
 }
 
 func main() {
-	var CriticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
-	var alert Alert
+	var criticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
+	var falcoEvent Alert
 
 	bodyReq := os.Getenv("BODY")
 	if bodyReq == "" {
 		panic("Need to get environment variable BODY")
 	}
 	bodyReqByte := []byte(bodyReq)
-	json.Unmarshal(bodyReqByte, &alert)
-
-	podName := alert.OutputFields.K8SPodName
-	namespace := alert.OutputFields.K8SNsName
-	log.Printf("PodName: %v & Namespace: %v", podName, namespace)
-
-	log.Printf("Rule: %v", alert.Rule)
-	var critical bool
-	for _, ns := range CriticalNamespaces {
-		if ns == namespace {
-			critical = true
-			break
-		}
+	err := json.Unmarshal(bodyReqByte, &falcoEvent)
+	if err != nil {
+		panic(fmt.Errorf("The data doesent match the struct %w", err))
 	}
 
-	// setup kubeClient
-	var kubeClient *kubernetes.Clientset
-	// creates the in-cluster config
+	kubeClient, err := setupK8sClient()
+	if err != nil {
+		panic(fmt.Errorf("Unable to create in-cluster config: %w", err))
+	}
+
+	err = deletePod(kubeClient, falcoEvent, criticalNamespaces)
+	if err != nil {
+		log.Fatalf("Unable to delete pod due to err %v", err)
+		os.Exit(1)
+	}
+}
+
+// setupK8sClient
+func setupK8sClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err.Error())
-	}
-	// creates the clientset
-	kubeClient, err = kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
-	if !critical {
-		log.Printf("Deleting pod %s from namespace %s", podName, namespace)
-		err := kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), podName, metaV1.DeleteOptions{})
-		if err != nil {
-			log.Fatalf("Unable to delete pod due to err %v", err)
-			os.Exit(1)
+	// creates the clientset
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return kubeClient, nil
+}
+
+// deletePod, if not part of the criticalNamespaces the pod will be deleted
+func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNamespaces []string) error {
+	podName := falcoEvent.OutputFields.K8SPodName
+	namespace := falcoEvent.OutputFields.K8SNsName
+	log.Printf("PodName: %v & Namespace: %v", podName, namespace)
+
+	log.Printf("Rule: %v", falcoEvent.Rule)
+	for _, ns := range criticalNamespaces {
+		if ns == namespace {
+			log.Printf("The pod %v won't be deleted due to it's part of the critical ns list: %v ", podName, ns)
+			return nil
 		}
 	}
+
+	log.Printf("Deleting pod %s from namespace %s", podName, namespace)
+	err := kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), podName, metaV1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 ```
 
@@ -246,151 +265,56 @@ cat <<EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: hello
+  name: pod-delete
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   steps:
-    - name: hello
-      image: quay.io/nissessenap/poddeleter:3a9d3d5
+    - name: pod-delete
+      image: quay.io/nissessenap/poddeleter@sha256:323524ac50274a51f5dfdb70bf3ea0d24c57b0ca312b5fbcaa9c81446d5da998
       env:
         - name: BODY
-          value: "$(params.body)"
+          value: \$(params.falco-event)
 EOF
 ```
 
-- The task needs a input variable called body.
-- The step called hello uses the poddeleter image.
-- Step hello sets the environment BODY from the input parameter called body.
+- The task needs a input variable falco-event.
+- The step called pod-delete uses the poddeleter image.
+- Step pod-delete sets the environment BODY from the input parameter called falco-event.
 
 #### Pipeline
 
 Bellow you can see the reusability of tekton.
 This pipeline can easily add more tasks and other pipelines can use the exact same task as this one.
 
-Just like the task this pipeline expects a parameter called body which it sends in to the hello task.
+Just like the task this pipeline expects a parameter called falco-event which it sends in to the pod-delete task.
 
 ```shell
 cat <<EOF | kubectl apply -f -
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: hello
+  name: pod-delete-pipeline
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   tasks:
-    - name: run-hello
+    - name: run-pod-delete
       taskRef:
-        name: hello
+        name: pod-delete
       params:
-        - name: body
-          value: "$(params.body)"
+        - name: falco-event
+          value: \$(params.falco-event)
 EOF
 ```
-
-#### Event listener
-
-Finally time to configure the tekton webhook receiver.
-Just like rest of Tekton the event listener builds on multiple parts.
-
-```shell
-cat <<EOF | kubectl apply -f -
-apiVersion: triggers.tekton.dev/v1alpha1
-kind: EventListener
-metadata:
-  name: falco-listener
-  namespace: falcoresponse
-spec:
-  serviceAccountName: tekton-triggers-example-sa
-  triggers:
-    - name: cel-trig
-      bindings:
-        - ref: falco-binding
-      template:
-        ref: falco-trigger-template
-EOF
-```
-
-Now a pod should start in the falcoresponse namespace.
-
-```shell
-kubectl get pdos -n falcoresponse
-NAME                                                 READY   STATUS      RESTARTS   AGE
-el-falco-listener-557786f598-zdmw2                   1/1     Running     0          2h
-```
-
-It is possible to expose a event listener using a ingress, this is a rather normal use case if you want github to trigger a pipeline for example.
-
-> I cannot stress this enough DO **NOT** DO THIS ON THIS event listener.
-We haven't added any protection and this task have the power to kill pods in your cluster. Don't give a potential hacker this power!
-
-The event listener is rather complex and can do [allot](https://tekton.dev/docs/triggers/eventlisteners/).
-For example one way to improve this tekton pipeline could be to check for a specific Priority from Falco.
-This could be done with a [cel interceptor](https://tekton.dev/docs/triggers/eventlisteners/#cel-interceptors)
-and filter on body.Priority.
-
-But for now lets just trigger on everything.
-
-The triggerBinding lets you define what data should be gathered from the incoming webhook.
-In this case I take the entire request body.
-
-```shell
-cat <<EOF | kubectl apply -f -
-apiVersion: triggers.tekton.dev/v1alpha1
-kind: TriggerBinding
-metadata:
-  name: falco-binding
-  namespace: falcoresponse
-spec:
-  params:
-    - name: body
-      value: $(body)
-EOF
-```
-
-We use the TriggerTemplate to call on the pipeline that we defined earlier using the parameter that the TriggerBinding gives us.
-
-```shell
-cat <<EOF | kubectl apply -f -
-apiVersion: triggers.tekton.dev/v1alpha1
-kind: TriggerTemplate
-metadata:
-  name: falco-trigger-template
-  namespace: falcoresponse
-  annotations:
-    triggers.tekton.dev/old-escape-quotes: "true"
-spec:
-  params:
-    - name: body
-      description: The entire msg from falco
-  resourcetemplates:
-    - apiVersion: tekton.dev/v1beta1
-      kind: PipelineRun
-      metadata:
-        generateName: hello-pipeline-run-
-      spec:
-        serviceAccountName: falco-pod-delete
-        pipelineRef:
-          name: hello
-        params:
-          - name: body
-            value: $(tt.params.body)
-EOF
-```
-
-> Notice the [annotations](https://tekton.dev/docs/triggers/triggertemplates/#escaping-quoted-strings), without it the pipeline never gets triggerd due to errors.
-
-We define the serviceAccount to use in our pipeline/task, point to the pipeline that we should use.
-And what parameter to send down to the pipeline, notice to **tt** in front of parma. This is special syntax for TriggerBindings.
 
 #### RBAC
 
-As you might have noticed we have used two different serviceAccounts. One for the event-listener and one for the poddeleter it self.
+We will be using two separate serviceAccounts, one for the event-listener and one for the poddeleter it self.
 
 So lets create those serviceAccounts and give them some access.
 
@@ -502,6 +426,101 @@ subjects:
 EOF
 ```
 
+#### Event listener
+
+Finally time to configure the tekton webhook receiver.
+Just like rest of Tekton the event listener builds on multiple parts.
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: falco-listener
+  namespace: falcoresponse
+spec:
+  serviceAccountName: tekton-triggers-example-sa
+  triggers:
+    - name: cel-trig
+      bindings:
+        - ref: falco-pod-delete-binding
+      template:
+        ref: falco-pod-delete-trigger-template
+EOF
+```
+
+It is possible to expose a event listener using a ingress, this is a rather normal use case if you want github to trigger a pipeline for example.
+
+> I cannot stress this enough DO **NOT** MAKE THE EVENT LISTENER PUBLIC TO THE INTERNET.
+We haven't added any protection and this task have the power to kill pods in your cluster. Don't give a potential hacker this power!
+
+The event listener is rather complex and can do [allot](https://tekton.dev/docs/triggers/eventlisteners/).
+For example one way to improve this tekton pipeline could be to check for a specific Priority from Falco.
+This could be done with a [cel interceptor](https://tekton.dev/docs/triggers/eventlisteners/#cel-interceptors)
+and filter on body.Priority.
+
+But for now lets just trigger on everything.
+
+The triggerBinding lets you define what data should be gathered from the incoming webhook.
+In this case I take the entire request body.
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerBinding
+metadata:
+  name: falco-pod-delete-binding
+  namespace: falcoresponse
+spec:
+  params:
+    - name: falco-event
+      value: \$(body)
+EOF
+```
+
+We use the TriggerTemplate to call on the pipeline that we defined earlier using the parameter that the TriggerBinding gives us.
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: falco-pod-delete-trigger-template
+  namespace: falcoresponse
+  annotations:
+    triggers.tekton.dev/old-escape-quotes: "true"
+spec:
+  params:
+    - name: falco-event
+      description: The entire msg from falco
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: falco-pod-delete-pipeline-run-
+      spec:
+        serviceAccountName: falco-pod-delete
+        pipelineRef:
+          name: pod-delete-pipeline
+        params:
+          - name: falco-event
+            value: \$(tt.params.falco-event)
+EOF
+```
+
+> Notice the [annotations](https://tekton.dev/docs/triggers/triggertemplates/#escaping-quoted-strings), without it the pipeline never gets triggerd due to errors.
+
+We define the serviceAccount to use in our pipeline/task, point to the pipeline that we should use.
+And what parameter to send down to the pipeline, notice to **tt** in front of parma. This is special syntax for TriggerBindings.
+
+The triggerTemplate was the final pice needed and you should see a pod spinning up in the falcoresponse namespace.
+
+```shell
+kubectl get pdos -n falcoresponse
+NAME                                                 READY   STATUS      RESTARTS   AGE
+el-falco-listener-557786f598-zdmw2                   1/1     Running     0          2h
+```
+
 ## Trigger job
 
 Finally it's time to test our setup.
@@ -546,10 +565,11 @@ Sun May  2 18:00:10 2021: Starting internal webserver, listening on port 8765
 In **Terminal 2** you should see a pod starting and hopefully Complete without any errors and the alpine pod getting killed.
 
 ```shell
-NAME                                                 READY   STATUS      RESTARTS   AGE
-alpine                                               0/1     Terminating   0          2m7s
-el-falco-listener-557786f598-zdmw2                   1/1     Running     0          2h
-hello-pipeline-run-vs89z-run-hello-6cxqn-pod-sjk2z   0/1     Completed   0          1m
+NAME                                                              READY   STATUS            RESTARTS   AGE
+alpine                                                            0/1     Terminating       0          1m7s
+el-falco-listener-557786f598-znzk9                                1/1     Running           0          10m
+falco-pod-delete-pipeline-run-w2vf8-run-pod-delete-jlxl7--mk44k   0/1     Completed         0          59s
+
 ```
 
 > Hurray our "hacked" pod have been killed
@@ -557,7 +577,7 @@ hello-pipeline-run-vs89z-run-hello-6cxqn-pod-sjk2z   0/1     Completed   0      
 If you look in the logs of the task
 
 ```shell
-kubectl logs -f $(kubectl get pods -l tekton.dev/task=hello -o jsonpath="{.items[0].metadata.name}" -n falcoresponse) -n falcoresponse
+kubectl logs -f $(kubectl get pods -l tekton.dev/task=pod-delete -o jsonpath="{.items[0].metadata.name}" -n falcoresponse) -n falcoresponse
 2021/05/02 18:11:00 PodName: alpine & Namespace: falcoresponse
 2021/05/02 18:11:00 Rule: Terminal shell in container
 2021/05/02 18:11:00 Deleting pod alpine from namespace falcoresponse
@@ -572,6 +592,6 @@ As noted during this post there are allot of potential improvements before this 
 - The criticalNamepsaces in our go code is currently hard-coded and needs to be input variable of some kind.
 - We need to be able to delete pods depending on priority level, rule or something similar.
 - To be able to debug pods we might need to shell in th them, we need a way to ignore pods temporary without the pod getting restarted. Probably a annotation to look for in the pod before deleting it.
-- And probably many other needs that you can come up wtih.
+- And probably many other needs that you can come up with.
 
 If you have any ideas/issues come and share them in the falco slack [https://kubernetes.slack.com](https://kubernetes.slack.com) #falco.

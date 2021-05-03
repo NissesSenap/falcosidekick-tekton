@@ -1,3 +1,4 @@
+---
 apiVersion: triggers.tekton.dev/v1alpha1
 kind: EventListener
 metadata:
@@ -8,6 +9,6 @@ spec:
   triggers:
     - name: cel-trig
       bindings:
-        - ref: falco-binding
+        - ref: falco-pod-delete-binding
       template:
-        ref: falco-trigger-template
+        ref: falco-pod-delete-trigger-template
