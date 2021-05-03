@@ -5,12 +5,12 @@ metadata:
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   tasks:
     - name: run-pod-delete
       taskRef:
         name: pod-delete
       params:
-        - name: body
-          value: "$(params.body)"
+        - name: falco-event
+          value: "$(params.falco-event)"

@@ -250,14 +250,14 @@ metadata:
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   steps:
     - name: pod-delete
       image: quay.io/nissessenap/poddeleter:3a9d3d5
       env:
-        - name: BODY
-          value: "$(params.body)"
+        - name: falco-event
+          value: "$(params.falco-event)"
 EOF
 ```
 
@@ -281,15 +281,15 @@ metadata:
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   tasks:
     - name: run-pod-delete
       taskRef:
         name: pod-delete
       params:
-        - name: body
-          value: "$(params.body)"
+        - name: falco-event
+          value: "$(params.falco-event)"
 EOF
 ```
 
@@ -348,7 +348,7 @@ metadata:
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       value: $(body)
 EOF
 ```
@@ -366,7 +366,7 @@ metadata:
     triggers.tekton.dev/old-escape-quotes: "true"
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   resourcetemplates:
     - apiVersion: tekton.dev/v1beta1
@@ -378,8 +378,8 @@ spec:
         pipelineRef:
           name: pod-delete
         params:
-          - name: body
-            value: $(tt.params.body)
+          - name: falco-event
+            value: $(tt.params.falco-event)
 EOF
 ```
 

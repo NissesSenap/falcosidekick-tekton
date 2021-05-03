@@ -7,7 +7,7 @@ metadata:
     triggers.tekton.dev/old-escape-quotes: "true"
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   resourcetemplates:
     - apiVersion: tekton.dev/v1beta1
@@ -19,5 +19,5 @@ spec:
         pipelineRef:
           name: pod-delete-pipeline
         params:
-          - name: body
-            value: $(tt.params.body)
+          - name: falco-event
+            value: $(tt.params.falco-event)

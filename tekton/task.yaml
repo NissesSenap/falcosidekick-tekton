@@ -5,11 +5,11 @@ metadata:
   namespace: falcoresponse
 spec:
   params:
-    - name: body
+    - name: falco-event
       description: The entire msg from falco
   steps:
     - name: pod-delete
       image: quay.io/nissessenap/poddeleter:3a9d3d5
       env:
         - name: BODY
-          value: "$(params.body)"
+          value: "$(params.falco-event)"
