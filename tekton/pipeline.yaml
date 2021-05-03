@@ -1,3 +1,4 @@
+---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
@@ -13,4 +14,4 @@ spec:
         name: pod-delete
       params:
         - name: falco-event
-          value: "$(params.falco-event)"
+          value: $(params.falco-event)

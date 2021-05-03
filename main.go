@@ -79,20 +79,17 @@ func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNames
 	log.Printf("PodName: %v & Namespace: %v", podName, namespace)
 
 	log.Printf("Rule: %v", falcoEvent.Rule)
-	var critical bool
 	for _, ns := range criticalNamespaces {
 		if ns == namespace {
-			critical = true
-			break
+			log.Printf("The pod %v won't be deleted due to it's part of the critical ns list: %v ", podName, ns)
+			return nil
 		}
 	}
 
-	if !critical {
-		log.Printf("Deleting pod %s from namespace %s", podName, namespace)
-		err := kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), podName, metaV1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
+	log.Printf("Deleting pod %s from namespace %s", podName, namespace)
+	err := kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), podName, metaV1.DeleteOptions{})
+	if err != nil {
+		return err
 	}
 	return nil
 }
