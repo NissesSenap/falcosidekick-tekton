@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// Alert falco data structure
 type Alert struct {
 	Output       string    `json:"output"`
 	Priority     string    `json:"priority"`
@@ -30,48 +32,67 @@ type Alert struct {
 }
 
 func main() {
-	var CriticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
-	var alert Alert
+	var criticalNamespaces = []string{"kube-system", "kube-public", "kube-node-lease", "falco"}
+	var falcoEvent Alert
 
 	bodyReq := os.Getenv("BODY")
 	if bodyReq == "" {
 		panic("Need to get environment variable BODY")
 	}
 	bodyReqByte := []byte(bodyReq)
-	json.Unmarshal(bodyReqByte, &alert)
+	err := json.Unmarshal(bodyReqByte, &falcoEvent)
+	if err != nil {
+		panic(fmt.Errorf("The data doesent match the struct %w", err))
+	}
 
-	podName := alert.OutputFields.K8SPodName
-	namespace := alert.OutputFields.K8SNsName
+	kubeClient, err := setupK8sClient()
+	if err != nil {
+		panic(fmt.Errorf("Unable to create in-cluster config: %w", err))
+	}
+
+	err = deletePod(kubeClient, falcoEvent, criticalNamespaces)
+	if err != nil {
+		log.Fatalf("Unable to delete pod due to err %v", err)
+		os.Exit(1)
+	}
+}
+
+// setupK8sClient
+func setupK8sClient() (*kubernetes.Clientset, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// creates the clientset
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return kubeClient, nil
+}
+
+// deletePod, if not part of the criticalNamespaces the pod will be deleted
+func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNamespaces []string) error {
+	podName := falcoEvent.OutputFields.K8SPodName
+	namespace := falcoEvent.OutputFields.K8SNsName
 	log.Printf("PodName: %v & Namespace: %v", podName, namespace)
 
-	log.Printf("Rule: %v", alert.Rule)
+	log.Printf("Rule: %v", falcoEvent.Rule)
 	var critical bool
-	for _, ns := range CriticalNamespaces {
+	for _, ns := range criticalNamespaces {
 		if ns == namespace {
 			critical = true
 			break
 		}
 	}
 
-	// setup kubeClient
-	var kubeClient *kubernetes.Clientset
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err.Error())
-	}
-	// creates the clientset
-	kubeClient, err = kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
-
 	if !critical {
 		log.Printf("Deleting pod %s from namespace %s", podName, namespace)
 		err := kubeClient.CoreV1().Pods(namespace).Delete(context.Background(), podName, metaV1.DeleteOptions{})
 		if err != nil {
-			log.Fatalf("Unable to delete pod due to err %v", err)
-			os.Exit(1)
+			return err
 		}
 	}
+	return nil
 }
