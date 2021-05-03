@@ -2,15 +2,15 @@
 
 If you follow the Falco blog you have been able to see a recent blog post about "Kubernetes Response Engine".
 
-In those blogs there is talk about two different serverless runtimes, [Kubeless](https://kubeless.io/) and [OpenFaas](https://www.openfaas.com/).
-The blogs talk about how you can trigger a pod after getting input from faclosidekick to kill a compromised pod.
+In those blogs two different serverless runtimes is used, [Kubeless](https://kubeless.io/) and [OpenFaas](https://www.openfaas.com/).
+The blogs describes how you can trigger a pod after getting input from faclosidekick to kill a compromised pod.
 My plan with this blog is to showcase how we can do the same thing but with [Tekton](https://tekton.dev) and not have to add any extra complexity to your cluster by adding a serverless runtime.
 
 I won't go through how Tekton works in depth but, you can find a good overview in the  [official docs](https://tekton.dev/docs/overview/).
-But hear is the crash course:
+But here is the crash course:
 
 - Tekton is built to be reusable.
-- The smallest part of tekton is a **step**, a step can be something like.
+- The smallest part of tekton is a **step**, a step can be something like this:
   - Run unit tests
   - Run linting
 - In a **task** you can have multiple steps.
@@ -33,8 +33,8 @@ As always within Kubernetes we need a few tools, I have used the following versi
 
 ## Provision local Kubernetes Cluster
 
-I'm sure you can use a kind cluster as well to follow along.
-But falco complained a bit when I tried and I was to lazy to check out what extra flags I need so I went with minikube.
+I'm sure you can use a [kind](https://github.com/kubernetes-sigs/kind) cluster as well to follow along,
+but falco complained a bit when I tried and I was to lazy to check out what extra flags I need so I went with minikube.
 
 ```shell
 minikube start --cpus 3 --memory 8192 --vm-driver virtualbox
