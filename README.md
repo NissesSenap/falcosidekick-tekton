@@ -140,7 +140,7 @@ Below you can see the code, in short it does the following:
 
 - Check for environment variable BODY.
 - Unmarshal the data according to the Alert struct.
-- Setups a kubernetes client, by calling setupK8sClient function.
+- Setups a kubernetes client, by calling setupKubeClient function.
 - Calls the deletePod with a kubernetes client, the falcoEvent we gotten and a hash map of critical Namespaces.
 - Check in the event that we got from falcosidekick and see if the pod that triggered the event is in our critical namespaces hash map.
 - If it is return to the main and shutdown the application.
@@ -152,7 +152,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -187,21 +186,22 @@ func main() {
 		"kube-node-lease": true,
 		"falco":           true,
 	}
+
 	var falcoEvent Alert
 
 	bodyReq := os.Getenv("BODY")
 	if bodyReq == "" {
-		panic("Need to get environment variable BODY")
+		log.Fatalf("Need to get environment variable BODY")
 	}
 	bodyReqByte := []byte(bodyReq)
 	err := json.Unmarshal(bodyReqByte, &falcoEvent)
 	if err != nil {
-		panic(fmt.Errorf("The data doesent match the struct %w", err))
+		log.Fatalf("The data doesent match the struct %v", err)
 	}
 
-	kubeClient, err := setupK8sClient()
+	kubeClient, err := setupKubeClient()
 	if err != nil {
-		panic(fmt.Errorf("Unable to create in-cluster config: %w", err))
+		log.Fatalf("Unable to create in-cluster config: %v", err)
 	}
 
 	err = deletePod(kubeClient, falcoEvent, criticalNamespaces)
@@ -210,8 +210,8 @@ func main() {
 	}
 }
 
-// setupK8sClient
-func setupK8sClient() (*kubernetes.Clientset, error) {
+// setupKubeClient
+func setupKubeClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -244,7 +244,6 @@ func deletePod(kubeClient *kubernetes.Clientset, falcoEvent Alert, criticalNames
 	}
 	return nil
 }
-
 ```
 
 If you rather see it in [github](https://raw.githubusercontent.com/NissesSenap/falcosidekick-tekton/main/main.go).
