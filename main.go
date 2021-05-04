@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -38,21 +37,22 @@ func main() {
 		"kube-node-lease": true,
 		"falco":           true,
 	}
+
 	var falcoEvent Alert
 
 	bodyReq := os.Getenv("BODY")
 	if bodyReq == "" {
-		panic("Need to get environment variable BODY")
+		log.Fatalf("Need to get environment variable BODY")
 	}
 	bodyReqByte := []byte(bodyReq)
 	err := json.Unmarshal(bodyReqByte, &falcoEvent)
 	if err != nil {
-		panic(fmt.Errorf("The data doesent match the struct %w", err))
+		log.Fatalf("The data doesent match the struct %v", err)
 	}
 
-	kubeClient, err := setupK8sClient()
+	kubeClient, err := setupKubeClient()
 	if err != nil {
-		panic(fmt.Errorf("Unable to create in-cluster config: %w", err))
+		log.Fatalf("Unable to create in-cluster config: %v", err)
 	}
 
 	err = deletePod(kubeClient, falcoEvent, criticalNamespaces)
@@ -61,8 +61,8 @@ func main() {
 	}
 }
 
-// setupK8sClient
-func setupK8sClient() (*kubernetes.Clientset, error) {
+// setupKubeClient
+func setupKubeClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
