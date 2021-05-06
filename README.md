@@ -82,7 +82,6 @@ falcosidekick:
   config:
     webhook:
       address: http://el-falco-listener.falcoresponse.svc.cluster.local:8080
-      customHeaders: Falcon:true\,Stuff:yes
   enabled: true
 
 customRules:
